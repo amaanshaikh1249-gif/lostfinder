@@ -1,0 +1,30 @@
+.ui-btn {
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: 0.3s;
+  font-weight: 600;
+}
+.ui-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.ui-btn-primary {
+  background: linear-gradient(90deg,#22c55e,#3b82f6);
+  border: none;
+}
+.ui-btn-outline {
+  background: transparent;
+  border: 1px solid #3b82f6;
+  color: #3b82f6;
+}
+.ui-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.ui-btn-sm { padding: 8px 12px; font-size: 13px; }
+.ui-btn-md { padding: 10px 16px; font-size: 14px; }
+.ui-btn-lg { padding: 12px 20px; font-size: 16px; }

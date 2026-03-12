@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install backend deps
+        working-directory: backend
+        run: npm i
+      - name: Start backend
+        working-directory: backend
+        run: |
+          nohup npm run start >/tmp/backend.log 2>&1 &
+          npx wait-on tcp:5000
+      - name: Run smoke
+        working-directory: backend
+        run: npm run smoke
+      - name: Run API tests
+        working-directory: backend
+        run: npm run test:api
+
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install backend deps and start
+        working-directory: backend
+        run: |
+          npm i
+          nohup npm run start >/tmp/backend.log 2>&1 &
+          npx wait-on tcp:5000
+      - name: Install frontend deps
+        working-directory: client
+        run: npm i
+      - name: Lint
+        working-directory: client
+        run: npm run lint
+      - name: Install Playwright Browsers
+        working-directory: client
+        run: npx playwright install --with-deps
+      - name: Start Frontend
+        working-directory: client
+        run: |
+          nohup npm run dev >/tmp/frontend.log 2>&1 &
+          npx wait-on http-get://localhost:5173
+      - name: Run Playwright tests
+        working-directory: client
+        run: npm run test:e2e
