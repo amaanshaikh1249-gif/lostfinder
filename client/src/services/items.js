@@ -27,7 +27,9 @@ export async function claimItem(id, email, proofsArr = []) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, proofs: proofsArr })
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.msg || "Error claiming item");
+  return data;
 }
 
 export async function getMessages(itemId) {

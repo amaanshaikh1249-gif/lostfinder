@@ -148,20 +148,20 @@ router.get("/", async (req, res) => {
 // GET SINGLE ITEM SUMMARY
 router.get("/summary/:id", async (req, res) => {
   try {
-    const i = await Item.findById(req.params.id);
-    if (!i) return res.status(404).json({ message: "Not found" });
-    const obj = i.toObject();
-    res.json({
-      _id: obj._id,
-      name: obj.name,
-      category: obj.category,
-      location: obj.location,
-      contact: obj.contact,
-      email: obj.email,
-      status: obj.status
-    });
-  } catch {
-    res.status(500).json({ message: "Server error" });
+    const item = await Item.findById(req.params.id).select("name category location status description image createdAt contact email claimedBy");
+    if (!item) return res.status(404).json({ msg: "Item not found" });
+    const obj = item.toObject();
+    const valid =
+      typeof obj.image === "string" &&
+      (
+        obj.image.startsWith("/uploads/") ||
+        obj.image.startsWith("/images/") ||
+        /^https?:\/\//.test(obj.image)
+      );
+    obj.image = valid ? obj.image : "/images/item-placeholder.svg";
+    res.json(obj);
+  } catch (err) {
+    res.status(500).json({ msg: "Server error" });
   }
 });
 
@@ -211,6 +211,23 @@ router.post("/claim/:id", async (req, res) => {
         title: "New Claim Request",
         body: `Claimed by ${req.body.email} for ${item.name}`
       });
+
+      // Send email alert to the item owner
+      const transporter = buildTransporter();
+      if (transporter) {
+        try {
+          await transporter.sendMail({
+            from: process.env.SMTP_FROM || "no-reply@lostfinder.com",
+            to: item.email,
+            subject: `New Claim Request for your item: ${item.name}`,
+            text: `Hello,\n\nSomeone has claimed your item: ${item.name}.\nClaimant Email: ${req.body.email}\n\nPlease log in to review the claim.\n\nBest regards,\nLostFinder Team`
+          });
+        } catch (e) {
+          console.error("Email sending error:", e);
+        }
+      } else {
+        console.log("[EmailSimulated] New claim alert to", item.email);
+      }
     }
 
     res.json({ msg: "Claim request sent", aiConfidence: item.aiConfidence });
@@ -373,17 +390,6 @@ router.get("/message/:id", async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
-// GET SINGLE ITEM SUMMARY
-router.get("/summary/:id", async (req, res) => {
-  try {
-    const item = await Item.findById(req.params.id).select("name category location status description image createdAt contact email claimedBy");
-    if (!item) return res.status(404).json({ msg: "Item not found" });
-    res.json(item);
-  } catch (err) {
-    res.status(500).json({ msg: "Server error" });
-  }
-});
-
 // GET USER DASHBOARD DATA
 router.get("/user/:email", async (req, res) => {
   try {

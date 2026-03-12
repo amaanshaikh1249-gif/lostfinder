@@ -74,6 +74,7 @@ router.get("/conversations", verifyUserToken, async (req, res) => {
           lastMessage: { $first: "$message" },
           lastType: { $first: "$messageType" },
           lastAt: { $first: "$createdAt" },
+          itemId: { $max: "$itemId" }, // Get any itemId if present in the conversation
           unseenCount: {
             $sum: {
               $cond: [{ $and: [{ $eq: ["$receiverId", me] }, { $eq: ["$seen", false] }] }, 1, 0]
@@ -84,15 +85,32 @@ router.get("/conversations", verifyUserToken, async (req, res) => {
       { $sort: { lastAt: -1 } } // Sort conversations by latest message
     ]);
     const peerIds = conv.map(c => c._id.peer);
-    const peers = await User.find({ _id: { $in: peerIds } }).select("_id name email");
+    const itemIds = conv.map(c => c.itemId).filter(Boolean);
+    
+    const [peers, items] = await Promise.all([
+      User.find({ _id: { $in: peerIds } }).select("_id name email"),
+      Item.find({ _id: { $in: itemIds } }).select("_id name")
+    ]);
+
     const peerMap = Object.fromEntries(peers.map(p => [String(p._id), p]));
-    const out = conv.map(c => ({
-      peer: peerMap[String(c._id.peer)],
-      lastMessage: c.lastMessage,
-      lastType: c.lastType,
-      lastAt: c.lastAt,
-      unseenCount: c.unseenCount
-    })).filter(c => c.peer); // Ensure we only return conversations with valid peers
+    const itemMap = Object.fromEntries(items.map(i => [String(i._id), i]));
+
+    const out = conv.map(c => {
+      const p = peerMap[String(c._id.peer)];
+      if (!p) return null;
+      const item = itemMap[String(c.itemId)];
+      return {
+        peer: {
+          ...p.toObject(),
+          itemId: c.itemId || null,
+          itemName: item?.name || null
+        },
+        lastMessage: c.lastMessage,
+        lastType: c.lastType,
+        lastAt: c.lastAt,
+        unseenCount: c.unseenCount
+      };
+    }).filter(Boolean);
     res.json(out);
   } catch (e) {
     console.error("Conversations error:", e);
@@ -123,10 +141,10 @@ router.get("/messages/:peerId", verifyUserToken, async (req, res) => {
 router.post("/messages", verifyUserToken, async (req, res) => {
   try {
     const me = req.user.id;
-    const { receiverId, message } = req.body || {};
+    const { receiverId, message, itemId } = req.body || {};
     if (!receiverId || !message) return res.status(400).json({ msg: "Missing fields" });
     if (receiverId === me) return res.status(400).json({ msg: "Cannot message yourself" });
-    const doc = await ChatMessage.create({ senderId: me, receiverId, message, messageType: "text" });
+    const doc = await ChatMessage.create({ senderId: me, receiverId, message, messageType: "text", itemId: itemId || null });
     req.app.get("io").to(String(receiverId)).emit("chat:message", doc);
     res.json(doc);
   } catch (e) {
@@ -138,10 +156,10 @@ router.post("/messages", verifyUserToken, async (req, res) => {
 router.post("/messages/image", verifyUserToken, upload.single("file"), async (req, res) => {
   try {
     const me = req.user.id;
-    const { receiverId } = req.body || {};
+    const { receiverId, itemId } = req.body || {};
     if (!receiverId || !req.file) return res.status(400).json({ msg: "Missing fields" });
     const url = `/uploads/${req.file.filename}`;
-    const doc = await ChatMessage.create({ senderId: me, receiverId, message: url, messageType: "image" });
+    const doc = await ChatMessage.create({ senderId: me, receiverId, message: url, messageType: "image", itemId: itemId || null });
     req.app.get("io").to(String(receiverId)).emit("chat:message", doc);
     res.json(doc);
   } catch (e) {

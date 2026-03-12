@@ -56,6 +56,10 @@ export default function Sidebar() {
               <FaUserShield />
               <span>Admin Panel</span>
             </NavLink>
+            <NavLink to="/admin-claims" className={({ isActive }) => `nav-item admin${isActive ? " active" : ""}`}>
+              <FaClipboardCheck />
+              <span>Claims</span>
+            </NavLink>
             <NavLink to="/admin-users" className={({ isActive }) => `nav-item admin${isActive ? " active" : ""}`}>
               <FaUsers />
               <span>Users</span>
@@ -64,10 +68,6 @@ export default function Sidebar() {
               <FaChartLine />
               <span>Analytics</span>
             </NavLink>
-            <button onClick={handleLogout} className="nav-item logout">
-              <FaSignOutAlt />
-              <span>Logout</span>
-            </button>
           </>
         ) : (
           <>

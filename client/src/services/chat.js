@@ -11,14 +11,15 @@ export async function getMessages(peerId) {
   const res = await API.get(`/chat/messages/${peerId}`);
   return res.data;
 }
-export async function sendMessage({ receiverId, message }) {
-  const res = await API.post(`/chat/messages`, { receiverId, message });
+export async function sendMessage({ receiverId, message, itemId }) {
+  const res = await API.post(`/chat/messages`, { receiverId, message, itemId });
   return res.data;
 }
-export async function uploadImageMessage({ receiverId, file }) {
+export async function uploadImageMessage({ receiverId, file, itemId }) {
   const fd = new FormData();
   fd.append("receiverId", receiverId);
   fd.append("file", file);
+  if (itemId) fd.append("itemId", itemId);
   const res = await API.post(`/chat/messages/image`, fd, {
     headers: { "Content-Type": "multipart/form-data" }
   });

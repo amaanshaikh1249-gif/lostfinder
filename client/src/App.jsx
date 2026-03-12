@@ -65,6 +65,7 @@ function Layout() {
     "/chat": "Chat",
     "/admin": "Admin Panel",
     "/admin-users": "Users",
+    "/admin-claims": "Claims",
     "/admin-notifications": "Notifications",
     "/user-login": "User Login",
     "/user-dashboard": "My Dashboard",
@@ -187,6 +188,14 @@ function Layout() {
             element={
               <ProtectedRoutes>
                 <Users />
+              </ProtectedRoutes>
+            }
+          />
+          <Route
+            path="/admin-claims"
+            element={
+              <ProtectedRoutes>
+                <Claims />
               </ProtectedRoutes>
             }
           />

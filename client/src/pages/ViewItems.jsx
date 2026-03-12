@@ -11,7 +11,14 @@ export default function ViewItems() {
   const [status, setStatus] = useState("All");
   const [category, setCategory] = useState("All");
   const [claimId, setClaimId] = useState(null);
-  const [claimEmail, setClaimEmail] = useState(localStorage.getItem("userEmail") || "");
+  const [claimEmail, setClaimEmail] = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user"));
+      return u?.email || localStorage.getItem("userEmail") || "";
+    } catch {
+      return localStorage.getItem("userEmail") || "";
+    }
+  });
   const [proofs, setProofs] = useState("");
   const { showToast } = useToast();
   const navigate = useNavigate();

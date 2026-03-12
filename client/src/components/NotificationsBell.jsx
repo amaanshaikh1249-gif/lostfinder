@@ -6,7 +6,17 @@ export default function NotificationsBell() {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const [list, setList] = useState([]);
-  const email = (JSON.parse(localStorage.getItem("admin"))?.email) || localStorage.getItem("userEmail") || "";
+  const email = (() => {
+    try {
+      const admin = JSON.parse(localStorage.getItem("admin"));
+      if (admin?.email) return admin.email;
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (user?.email) return user.email;
+      return localStorage.getItem("userEmail") || "";
+    } catch {
+      return localStorage.getItem("userEmail") || "";
+    }
+  })();
   const load = useCallback(async () => {
     if (!email) return;
     try {

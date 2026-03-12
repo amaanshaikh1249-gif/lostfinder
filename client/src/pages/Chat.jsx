@@ -90,16 +90,16 @@ export default function Chat() {
             } catch {}
           }
 
-          setActivePeer(peer);
-          updateConversationList(peer, "", "text", new Date(), false);
-
           // Fetch Item Details if itemId exists
           if (peer.itemId) {
             try {
               const item = await getItemSummary(peer.itemId);
               setItemDetails(item);
+              if (item?.name) peer.itemName = item.name;
             } catch {}
           }
+          setActivePeer(peer);
+          updateConversationList(peer, "", "text", new Date(), false);
         }
       } catch {}
     })();
@@ -194,7 +194,21 @@ export default function Chat() {
       if (activePeer._id) {
         const list = await getMessages(activePeer._id);
         setMessages(list);
-        if (list?.length) updateConversationList(activePeer, list[list.length - 1].message || "", list[list.length - 1].messageType, list[list.length - 1].createdAt, false);
+        if (list?.length) {
+          updateConversationList(activePeer, list[list.length - 1].message || "", list[list.length - 1].messageType, list[list.length - 1].createdAt, false);
+          
+          // Auto-resolve itemId if missing in activePeer but present in messages
+           if (!activePeer.itemId) {
+             const foundItem = [...list].reverse().find(m => m.itemId);
+             if (foundItem) {
+               setActivePeer(prev => ({ ...prev, itemId: foundItem.itemId }));
+               getItemSummary(foundItem.itemId).then(item => {
+                 setItemDetails(item);
+                 if (item?.name) setActivePeer(prev => ({ ...prev, itemName: item.name }));
+               }).catch(() => {});
+             }
+           }
+        }
       } else {
         const list = await legacyMessages({ email, peerEmail: activePeer.email });
         setMessages(list);
@@ -212,6 +226,10 @@ export default function Chat() {
       if (activePeer && (String(msg.senderId) === String(activePeer._id) || String(msg.receiverId) === String(activePeer._id))) {
         setMessages(prev => [...prev, msg]);
         scrollToBottom();
+        if (msg.itemId && (!activePeer.itemId || activePeer.itemId !== msg.itemId)) {
+          setActivePeer(prev => ({ ...prev, itemId: msg.itemId }));
+          getItemSummary(msg.itemId).then(setItemDetails).catch(() => {});
+        }
       }
 
       // Fetch peer info if not in list
@@ -223,6 +241,9 @@ export default function Chat() {
       }
       
       if (peer) {
+        if (msg.itemId) {
+          peer = { ...peer, itemId: msg.itemId };
+        }
         updateConversationList(peer, msg.message, msg.messageType, msg.createdAt, !isMe);
       }
     });
@@ -242,7 +263,12 @@ export default function Chat() {
     setActivePeer(u);
     setItemDetails(null);
     if (u?.itemId) {
-      getItemSummary(u.itemId).then(setItemDetails).catch(() => {});
+      getItemSummary(u.itemId).then(item => {
+        setItemDetails(item);
+        if (item?.name && !u.itemName) {
+          setActivePeer(prev => ({ ...prev, itemName: item.name }));
+        }
+      }).catch(() => {});
     }
     try {
       const payload = {
@@ -266,13 +292,13 @@ export default function Chat() {
     if (!text.trim() || !activePeer) return;
     let msg = null;
     if (activePeer._id) {
-      msg = await sendMessage({ receiverId: activePeer._id, message: text.trim() });
+      msg = await sendMessage({ receiverId: activePeer._id, message: text.trim(), itemId: activePeer.itemId });
       updateConversationList(activePeer, text.trim(), "text", new Date(), false);
       // write into recent peers
       try {
         const key = "chat:recent";
         const existing = JSON.parse(localStorage.getItem(key) || "[]");
-        const base = { id: activePeer._id, email: activePeer.email, name: activePeer.name };
+        const base = { id: activePeer._id, email: activePeer.email, name: activePeer.name, itemId: activePeer.itemId, itemName: activePeer.itemName };
         const filtered = existing.filter(p => p.id !== base.id);
         localStorage.setItem(key, JSON.stringify([{ ...base, ts: Date.now() }, ...filtered].slice(0, 20)));
       } catch {}
@@ -286,7 +312,7 @@ export default function Chat() {
       try {
         const key = "chat:recent";
         const existing = JSON.parse(localStorage.getItem(key) || "[]");
-        const base = { id: null, email: activePeer.email, name: activePeer.name, itemId: activePeer.itemId };
+        const base = { id: null, email: activePeer.email, name: activePeer.name, itemId: activePeer.itemId, itemName: activePeer.itemName };
         const filtered = existing.filter(p => p.email !== base.email || p.itemId !== base.itemId);
         localStorage.setItem(key, JSON.stringify([{ ...base, ts: Date.now() }, ...filtered].slice(0, 20)));
       } catch {}
@@ -310,7 +336,7 @@ export default function Chat() {
     try {
       let msg = null;
       if (activePeer._id) {
-        msg = await uploadImageMessage({ receiverId: activePeer._id, file });
+        msg = await uploadImageMessage({ receiverId: activePeer._id, file, itemId: activePeer.itemId });
         updateConversationList(activePeer, "[image]", "image", new Date(), false);
       } else {
         // legacy image upload via item message API
@@ -398,23 +424,23 @@ export default function Chat() {
               </div>
             </div>
 
-            <div ref={listRef} className="message-list">
-              {itemDetails && (
-                <div className="item-context-banner glass">
-                  <div className="context-img-wrap">
-                    <img src={srcFor(itemDetails.image)} alt={itemDetails.name} />
-                  </div>
-                  <div className="context-info">
-                    <div className="context-name">Item: {itemDetails.name}</div>
-                    <div className="context-meta">
-                      <span className={`badge ${itemDetails.status === "Lost" ? "lost" : "found"}`}>{itemDetails.status}</span>
-                      <span>{itemDetails.category}</span>
-                    </div>
-                    <div className="context-loc">{itemDetails.location}</div>
-                  </div>
+            {itemDetails && (
+              <div className="item-context-banner glass" style={{ margin: "0 12px 12px 12px" }}>
+                <div className="context-img-wrap">
+                  <img src={srcFor(itemDetails.image)} alt={itemDetails.name} />
                 </div>
-              )}
+                <div className="context-info">
+                  <div className="context-name">Item: {itemDetails.name}</div>
+                  <div className="context-meta">
+                    <span className={`badge ${itemDetails.status === "Lost" ? "lost" : "found"}`}>{itemDetails.status}</span>
+                    <span className="badge">{itemDetails.category}</span>
+                  </div>
+                  <div className="context-loc">{itemDetails.location}</div>
+                </div>
+              </div>
+            )}
 
+            <div ref={listRef} className="message-list">
               {messages.map(m => {
                 const isMe = m.senderId ? String(m.senderId) === String(userId) : (m.from && m.from === email);
                 return (

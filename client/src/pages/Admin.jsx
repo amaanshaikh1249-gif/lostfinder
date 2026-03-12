@@ -65,8 +65,6 @@ export default function Admin() {
     }
   };
 
-  // (Claims page removed) — claim approve/reject managed elsewhere
-
   if (loading) return <h2>Loading...</h2>;
 
   const filteredItems = items.filter(item => {
@@ -266,7 +264,6 @@ export default function Admin() {
                 <div className="row"><strong>Status:</strong> <span className={`badge ${detailItem.status === "Lost" ? "lost" : "found"}`}>{detailItem.status}</span></div>
                 <div className="row"><strong>Contact:</strong> {detailItem.contact || "-"}</div>
                 {detailItem.description && <div className="row"><strong>Description:</strong> {detailItem.description}</div>}
-                {detailItem.claimStatus && <div className="row"><strong>Claim:</strong> {detailItem.claimStatus}</div>}
               </div>
             </div>
           </div>
